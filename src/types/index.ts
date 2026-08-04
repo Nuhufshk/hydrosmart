@@ -23,6 +23,7 @@ export interface ESP32Settings {
 export interface DeviceInfo {
   name: string;
   ip: string;
+  port?: number;
   mac: string;
   firmware: string;
   isPaired: boolean;

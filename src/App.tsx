@@ -8,7 +8,6 @@ import { Card } from './components/ui';
 
 import { SplashScreen } from './screens/SplashScreen';
 import { DiscoveryScreen } from './screens/DiscoveryScreen';
-import { PairingScreen } from './screens/PairingScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ControlScreen } from './screens/ControlScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -16,6 +15,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { useAppStore } from './store/useAppStore';
 import { useESP32 } from './hooks/useESP32';
 import { useTheme, type ThemeColors } from './theme';
+import type { DeviceInfo } from './types';
 
 type Tab = 'dashboard' | 'monitoring' | 'control' | 'history' | 'settings';
 
@@ -24,28 +24,22 @@ const BottomTab = ({ icon: Icon, label, active, onPress }: { icon: any; label: s
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable onPress={onPress} style={styles.tab}>
-      <View style={[styles.tabIcon, active && styles.tabIconActive]}>
-        <Icon size={20} color={active ? colors.black : colors.gray400} />
+      <View style={styles.tabIcon}>
+        <Icon size={20} color={active ? colors.amber : colors.gray400} />
       </View>
       <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>{label}</Text>
     </Pressable>
   );
 };
 
-const FadeSlide = ({ children, slide = false }: { children: React.ReactNode; slide?: boolean }) => {
+const FadeSlide = ({ children }: { children: React.ReactNode }) => {
   const opacity = useRef(new Animated.Value(0)).current;
-  const x = useRef(new Animated.Value(slide ? 20 : 0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      Animated.timing(x, { toValue: 0, duration: 250, useNativeDriver: true }),
-    ]).start();
-  }, [opacity, x]);
+    Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+  }, [opacity]);
 
-  return (
-    <Animated.View style={{ flex: 1, opacity, transform: [{ translateX: x }] }}>{children}</Animated.View>
-  );
+  return <Animated.View style={{ flex: 1, opacity }}>{children}</Animated.View>;
 };
 
 const Gauge = ({ value, max }: { value: number; max: number }) => {
@@ -119,8 +113,7 @@ function AppContent() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const { isPaired, connected, setPaired, setDevice, setConnected } = useAppStore();
-  const [currentScreen, setCurrentScreen] = useState<'discovery' | 'pairing' | 'main'>('discovery');
-  const [selectedDevice, setSelectedDevice] = useState<any>(null);
+  const [currentScreen, setCurrentScreen] = useState<'discovery' | 'main'>('discovery');
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
   useEffect(() => {
@@ -132,16 +125,12 @@ function AppContent() {
     }
   }, [isPaired, connected]);
 
-  const handleDeviceSelect = (device: any) => {
-    setSelectedDevice(device);
-    setCurrentScreen('pairing');
-  };
-
-  const handlePair = () => {
+  const handleConnect = (device: DeviceInfo) => {
+    setDevice(device);
     setPaired(true);
     setConnected(true);
-    setDevice(selectedDevice);
     setCurrentScreen('main');
+    setActiveTab('dashboard');
   };
 
   if (loading) {
@@ -154,13 +143,7 @@ function AppContent() {
 
       {currentScreen === 'discovery' && (
         <FadeSlide>
-          <DiscoveryScreen onDeviceSelect={handleDeviceSelect} />
-        </FadeSlide>
-      )}
-
-      {currentScreen === 'pairing' && (
-        <FadeSlide slide>
-          <PairingScreen device={selectedDevice} onBack={() => setCurrentScreen('discovery')} onPair={handlePair} />
+          <DiscoveryScreen onConnect={handleConnect} />
         </FadeSlide>
       )}
 
@@ -228,9 +211,6 @@ const createStyles = (colors: ThemeColors) =>
       padding: 6,
       borderRadius: 12,
     },
-    tabIconActive: {
-      backgroundColor: colors.amber,
-    },
     tabLabel: {
       fontSize: 10,
       fontWeight: '800',
@@ -239,7 +219,7 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.gray400,
     },
     tabLabelActive: {
-      color: colors.black,
+      color: colors.amber,
     },
     monitoring: {
       padding: 24,
