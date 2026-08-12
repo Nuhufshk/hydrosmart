@@ -15,12 +15,14 @@ interface AppState {
   notifications: boolean;
   targets: DosingTargets;
   connected: boolean;
+  demo: boolean;
   setDevice: (device: DeviceInfo | null) => void;
   setPaired: (isPaired: boolean) => void;
   toggleTheme: () => void;
   toggleNotifications: () => void;
   setTargets: (targets: Partial<DosingTargets>) => void;
   setConnected: (connected: boolean) => void;
+  toggleDemo: () => void;
   forgetDevice: () => void;
 }
 
@@ -32,13 +34,15 @@ export const useAppStore = create<AppState>()(
       theme: 'light',
       notifications: true,
       targets: { targetPH: 6.0, targetEC: 1.8 },
-      connected: true,
+      connected: false,
+      demo: false,
       setDevice: (device) => set({ device }),
       setPaired: (isPaired) => set({ isPaired }),
       toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
       toggleNotifications: () => set((state) => ({ notifications: !state.notifications })),
       setTargets: (targets) => set((state) => ({ targets: { ...state.targets, ...targets } })),
       setConnected: (connected) => set({ connected }),
+      toggleDemo: () => set((state) => ({ demo: !state.demo })),
       forgetDevice: () => set({ device: null, isPaired: false, connected: false }),
     }),
     {
@@ -51,6 +55,7 @@ export const useAppStore = create<AppState>()(
         notifications: state.notifications,
         targets: state.targets,
         connected: state.connected,
+        demo: state.demo,
       }),
     }
   )

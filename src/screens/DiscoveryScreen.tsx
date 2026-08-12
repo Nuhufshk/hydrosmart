@@ -1,23 +1,28 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, ActivityIndicator, Pressable } from 'react-native';
-import { Wifi, Network, Cable, Zap, Info } from 'lucide-react-native';
+import { Wifi, Network, Cable, Zap, Info, AlertTriangle, ArrowLeft } from 'lucide-react-native';
 import { Card, Button } from '../components/ui';
 import { useTheme, type ThemeColors } from '../theme';
+import { useESP32 } from '../hooks/useESP32';
 import type { DeviceInfo } from '../types';
 
-export const DiscoveryScreen = ({ onConnect }: { onConnect: (device: DeviceInfo) => void }) => {
+export const DiscoveryScreen = ({ onConnect, onBack }: { onConnect: (device: DeviceInfo) => void; onBack?: () => void }) => {
   const colors = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const [ip, setIp] = useState('192.168.4.1');
+  const { connect } = useESP32();
+  const [ip, setIp] = useState('');
   const [port, setPort] = useState('80');
   const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const valid = ip.trim().length > 0 && /^\d+$/.test(port.trim()) && parseInt(port, 10) > 0 && parseInt(port, 10) <= 65535;
 
-  const connect = () => {
+  const handleConnect = async () => {
     if (!valid || connecting) return;
     setConnecting(true);
-    setTimeout(() => {
+    setError(null);
+    try {
+      await connect(ip.trim(), parseInt(port, 10));
       onConnect({
         name: 'HydroSmart ESP32',
         ip: ip.trim(),
@@ -26,11 +31,22 @@ export const DiscoveryScreen = ({ onConnect }: { onConnect: (device: DeviceInfo)
         firmware: 'v1.0.4-stable',
         isPaired: true,
       });
-    }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect to the device.');
+    } finally {
+      setConnecting(false);
+    }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {onBack && (
+        <Pressable onPress={onBack} style={styles.backButton}>
+          <ArrowLeft size={20} color={colors.gray700} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+      )}
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Discover</Text>
         <Text style={styles.headerSubtitle}>Connect to your HydroSmart device</Text>
@@ -84,11 +100,18 @@ export const DiscoveryScreen = ({ onConnect }: { onConnect: (device: DeviceInfo)
           size="lg"
           style={[styles.connectButton, !valid && styles.connectButtonDisabled]}
           disabled={!valid || connecting}
-          onPress={connect}
+          onPress={handleConnect}
         >
           {connecting ? <ActivityIndicator size="small" color={colors.black} /> : <Zap size={20} color={colors.black} />}
           {connecting ? 'Connecting...' : 'Connect'}
         </Button>
+
+        {error && (
+          <View style={styles.errorWrap}>
+            <AlertTriangle size={16} color={colors.red500} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
       </Card>
 
       <Pressable style={styles.hint}>
@@ -109,6 +132,20 @@ const createStyles = (colors: ThemeColors) =>
       padding: 24,
       paddingTop: 16,
       flexGrow: 1,
+    },
+    backButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      alignSelf: 'flex-start',
+      marginTop: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+    },
+    backText: {
+      color: colors.gray700,
+      fontSize: 15,
+      fontWeight: '600',
     },
     header: {
       marginBottom: 24,
@@ -187,6 +224,22 @@ const createStyles = (colors: ThemeColors) =>
     },
     connectButtonDisabled: {
       opacity: 0.5,
+    },
+    errorWrap: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      backgroundColor: colors.red50,
+      borderWidth: 1,
+      borderColor: colors.red100,
+      borderRadius: 12,
+      padding: 12,
+    },
+    errorText: {
+      flex: 1,
+      color: colors.red700,
+      fontSize: 13,
+      lineHeight: 18,
     },
     hint: {
       flexDirection: 'row',

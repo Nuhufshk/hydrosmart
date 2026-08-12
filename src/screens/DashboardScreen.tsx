@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Animated, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Animated } from 'react-native';
 import { Droplet, Thermometer, Battery, Wifi, Activity, CheckCircle2, AlertTriangle, WifiOff } from 'lucide-react-native';
 import { Card, Badge, Button } from '../components/ui';
 import { useESP32 } from '../hooks/useESP32';
@@ -23,35 +23,8 @@ const StatusCard = ({ title, value, unit, icon: Icon, color }: any) => {
   );
 };
 
-const ConnectionCard = ({ connected, deviceName, onDisconnect, onConnect }: any) => {
-  const colors = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
-  return (
-    <Card style={[styles.connectionCard, connected ? styles.connectionCardOn : styles.connectionCardOff]}>
-      <View style={styles.connectionInfo}>
-        <View style={[styles.connectionIcon, connected ? styles.connectionIconOn : styles.connectionIconOff]}>
-          {connected ? <Wifi size={24} color={colors.green600} /> : <WifiOff size={24} color={colors.gray500} />}
-        </View>
-        <View style={styles.connectionText}>
-          <Text style={styles.connectionTitle}>{connected ? 'Connected' : 'Disconnected'}</Text>
-          <Text style={styles.connectionSubtitle}>
-            {connected ? `${deviceName} · live telemetry active` : 'Tap below to reconnect to your device'}
-          </Text>
-        </View>
-      </View>
-      <Button
-        variant={connected ? 'danger' : 'primary'}
-        style={styles.connectionButton}
-        onPress={connected ? onDisconnect : onConnect}
-      >
-        {connected ? 'Disconnect' : 'Connect'}
-      </Button>
-    </Card>
-  );
-};
-
 export const DashboardScreen = () => {
-  const { status, loading, error, connected, connect, disconnect } = useESP32();
+  const { status, loading, error, connected, connect } = useESP32();
   const device = useAppStore((s) => s.device);
   const colors = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -67,11 +40,8 @@ export const DashboardScreen = () => {
     ).start();
   }, [pulse]);
 
-  const confirmDisconnect = () => {
-    Alert.alert('Disconnect Device', 'This will stop live telemetry. You can reconnect anytime.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Disconnect', style: 'destructive', onPress: disconnect },
-    ]);
+  const handleReconnect = () => {
+    if (device) connect(device.ip, device.port ?? 80).catch(() => {});
   };
 
   if (loading && !status) {
@@ -92,8 +62,8 @@ export const DashboardScreen = () => {
       <View style={styles.errorWrap}>
         <AlertTriangle size={48} color={colors.red500} />
         <Text style={styles.errorTitle}>Connection Lost</Text>
-        <Text style={styles.errorText}>Could not reach the ESP32 device at 192.168.4.1</Text>
-        <Button style={styles.errorButton} onPress={connect}>
+        <Text style={styles.errorText}>Could not reach the ESP32 device at {device?.ip ?? '192.168.4.1'}</Text>
+        <Button style={styles.errorButton} onPress={handleReconnect}>
           Reconnect
         </Button>
       </View>
@@ -143,13 +113,6 @@ export const DashboardScreen = () => {
         <StatusCard title="Wi-Fi Signal" value={status?.wifi != null ? String(status.wifi) : '—'} unit="dBm" icon={Wifi} color={colors.blue500} />
         <StatusCard title="Status" value={status?.mode ?? 'OFFLINE'} unit="" icon={CheckCircle2} color={colors.purple500} />
       </View>
-
-      <ConnectionCard
-        connected={connected}
-        deviceName={device?.name || 'HydroSmart ESP32'}
-        onDisconnect={confirmDisconnect}
-        onConnect={connect}
-      />
     </ScrollView>
   );
 };
@@ -309,50 +272,5 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.gray400,
       fontSize: 14,
       fontWeight: '500',
-    },
-    connectionCard: {
-      gap: 16,
-    },
-    connectionCardOn: {
-      borderColor: colors.green100,
-      backgroundColor: colors.green100,
-    },
-    connectionCardOff: {
-      borderColor: colors.gray200,
-      backgroundColor: colors.gray50,
-    },
-    connectionInfo: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 16,
-    },
-    connectionIcon: {
-      width: 48,
-      height: 48,
-      borderRadius: 14,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    connectionIconOn: {
-      backgroundColor: colors.green100,
-    },
-    connectionIconOff: {
-      backgroundColor: colors.gray200,
-    },
-    connectionText: {
-      flex: 1,
-    },
-    connectionTitle: {
-      fontWeight: '800',
-      fontSize: 16,
-      color: colors.gray900,
-    },
-    connectionSubtitle: {
-      fontSize: 12,
-      color: colors.gray500,
-      marginTop: 2,
-    },
-    connectionButton: {
-      width: '100%',
     },
   });

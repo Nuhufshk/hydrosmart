@@ -12,6 +12,8 @@ let currentStatus: ESP32Status = {
   relay: false,
   valve: false,
   mode: 'AUTO',
+  pumpSpeed: 100,
+  valveSpeed: 100,
   uptime: '00:00:00'
 };
 
@@ -149,5 +151,11 @@ export const api = {
   async updateSettings(next: Partial<ESP32Settings>): Promise<void> {
     settings = { ...settings, ...next };
     await new Promise(resolve => setTimeout(resolve, 500));
+  },
+
+  async setSpeed(speed: { pump?: number; valve?: number }): Promise<void> {
+    if (typeof speed.pump === 'number') currentStatus.pumpSpeed = clamp(Math.round(speed.pump), 0, 100);
+    if (typeof speed.valve === 'number') currentStatus.valveSpeed = clamp(Math.round(speed.valve), 0, 100);
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
 };

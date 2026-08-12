@@ -10,6 +10,8 @@ export interface ESP32Status {
   relay: boolean;
   valve: boolean;
   mode: 'AUTO' | 'MANUAL';
+  pumpSpeed: number;
+  valveSpeed: number;
   uptime: string;
 }
 

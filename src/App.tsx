@@ -1,23 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Alert } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { LayoutDashboard, Activity, Zap, History, Settings as SettingsIcon } from 'lucide-react-native';
+import { LayoutDashboard, Activity, Zap, Settings as SettingsIcon, Wifi, WifiOff } from 'lucide-react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Card } from './components/ui';
+import { Card, Button } from './components/ui';
 
 import { SplashScreen } from './screens/SplashScreen';
 import { DiscoveryScreen } from './screens/DiscoveryScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
 import { ControlScreen } from './screens/ControlScreen';
-import { HistoryScreen } from './screens/HistoryScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { useAppStore } from './store/useAppStore';
 import { useESP32 } from './hooks/useESP32';
 import { useTheme, type ThemeColors } from './theme';
 import type { DeviceInfo } from './types';
 
-type Tab = 'dashboard' | 'monitoring' | 'control' | 'history' | 'settings';
+type Tab = 'dashboard' | 'monitoring' | 'control' | 'settings';
 
 const BottomTab = ({ icon: Icon, label, active, onPress }: { icon: any; label: string; active: boolean; onPress: () => void }) => {
   const colors = useTheme();
@@ -75,10 +74,58 @@ const Gauge = ({ value, max }: { value: number; max: number }) => {
   );
 };
 
-const MonitoringScreen = () => {
-  const { status } = useESP32();
+const ConnectionCard = ({ connected, deviceName, onDisconnect, onConnect }: any) => {
   const colors = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  return (
+    <Card style={[styles.connectionCard, connected ? styles.connectionCardOn : styles.connectionCardOff]}>
+      <View style={styles.connectionInfo}>
+        <View style={[styles.connectionIcon, connected ? styles.connectionIconOn : styles.connectionIconOff]}>
+          {connected ? <Wifi size={24} color={colors.green600} /> : <WifiOff size={24} color={colors.gray500} />}
+        </View>
+        <View style={styles.connectionText}>
+          <Text style={styles.connectionTitle}>{connected ? 'Connected' : 'Disconnected'}</Text>
+          <Text style={styles.connectionSubtitle}>
+            {connected ? deviceName : 'Tap below to reconnect to your device'}
+          </Text>
+        </View>
+      </View>
+      <Button
+        variant={connected ? 'danger' : 'primary'}
+        style={styles.connectionButton}
+        onPress={connected ? onDisconnect : onConnect}
+      >
+        {connected ? 'Disconnect' : 'Connect'}
+      </Button>
+    </Card>
+  );
+};
+
+const MonitoringScreen = ({ onOpenDiscovery }: { onOpenDiscovery?: () => void }) => {
+  const { status, connected, connect, disconnect } = useESP32();
+  const device = useAppStore((s) => s.device);
+  const colors = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const confirmDisconnect = () => {
+    Alert.alert('Disconnect Device', 'This will stop live telemetry. You can reconnect anytime.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Disconnect', style: 'destructive', onPress: disconnect },
+    ]);
+  };
+
+  const handleReconnect = async () => {
+    if (device) {
+      try {
+        await connect(device.ip, device.port ?? 80);
+      } catch {
+        if (onOpenDiscovery) onOpenDiscovery();
+      }
+    } else if (onOpenDiscovery) {
+      onOpenDiscovery();
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.monitoring}>
       <View style={styles.monitoringHeader}>
@@ -87,12 +134,12 @@ const MonitoringScreen = () => {
       </View>
 
       <Card style={styles.gaugeCard}>
-        <Gauge value={status?.ph ?? 6.4} max={14} />
+        <Gauge value={status?.ph != null ? Number(status.ph.toFixed(2)) : 6.4} max={14} />
       </Card>
 
       <View style={styles.monitoringGrid}>
         <Card style={styles.monitoringCard}>
-          <Text style={styles.monitoringValue}>{status?.ec?.toFixed(1) ?? '1.8'}</Text>
+          <Text style={styles.monitoringValue}>{status?.ec?.toFixed(2) ?? '1.80'}</Text>
           <Text style={styles.monitoringLabel}>EC (mS/cm)</Text>
         </Card>
         <Card style={styles.monitoringCard}>
@@ -102,6 +149,13 @@ const MonitoringScreen = () => {
           <Text style={styles.monitoringLabel}>Temperature</Text>
         </Card>
       </View>
+
+      <ConnectionCard
+        connected={connected}
+        deviceName={device?.name || 'HydroSmart ESP32'}
+        onDisconnect={confirmDisconnect}
+        onConnect={handleReconnect}
+      />
     </ScrollView>
   );
 };
@@ -113,15 +167,13 @@ function AppContent() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const { isPaired, connected, setPaired, setDevice, setConnected } = useAppStore();
-  const [currentScreen, setCurrentScreen] = useState<'discovery' | 'main'>('discovery');
+  const [currentScreen, setCurrentScreen] = useState<'discovery' | 'main'>('main');
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
 
   useEffect(() => {
     if (isPaired && connected) {
       setCurrentScreen('main');
       setActiveTab('dashboard');
-    } else {
-      setCurrentScreen('discovery');
     }
   }, [isPaired, connected]);
 
@@ -143,7 +195,7 @@ function AppContent() {
 
       {currentScreen === 'discovery' && (
         <FadeSlide>
-          <DiscoveryScreen onConnect={handleConnect} />
+          <DiscoveryScreen onConnect={handleConnect} onBack={() => setCurrentScreen('main')} />
         </FadeSlide>
       )}
 
@@ -152,17 +204,15 @@ function AppContent() {
           <View style={styles.main}>
             <View style={styles.mainContent}>
               {activeTab === 'dashboard' && <DashboardScreen />}
-              {activeTab === 'monitoring' && <MonitoringScreen />}
+              {activeTab === 'monitoring' && <MonitoringScreen onOpenDiscovery={() => setCurrentScreen('discovery')} />}
               {activeTab === 'control' && <ControlScreen />}
-              {activeTab === 'history' && <HistoryScreen />}
               {activeTab === 'settings' && <SettingsScreen />}
             </View>
 
             <View style={[styles.nav, { paddingBottom: insets.bottom + 12 }]}>
               <BottomTab icon={LayoutDashboard} label="Home" active={activeTab === 'dashboard'} onPress={() => setActiveTab('dashboard')} />
-              <BottomTab icon={Activity} label="Monitor" active={activeTab === 'monitoring'} onPress={() => setActiveTab('monitoring')} />
+              <BottomTab icon={Activity} label="Connect" active={activeTab === 'monitoring'} onPress={() => setActiveTab('monitoring')} />
               <BottomTab icon={Zap} label="Control" active={activeTab === 'control'} onPress={() => setActiveTab('control')} />
-              <BottomTab icon={History} label="History" active={activeTab === 'history'} onPress={() => setActiveTab('history')} />
               <BottomTab icon={SettingsIcon} label="Settings" active={activeTab === 'settings'} onPress={() => setActiveTab('settings')} />
             </View>
           </View>
@@ -285,5 +335,50 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.gray400,
       textTransform: 'uppercase',
       letterSpacing: 1,
+    },
+    connectionCard: {
+      gap: 16,
+    },
+    connectionCardOn: {
+      borderColor: colors.green100,
+      backgroundColor: colors.green100,
+    },
+    connectionCardOff: {
+      borderColor: colors.gray200,
+      backgroundColor: colors.gray50,
+    },
+    connectionInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    connectionIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    connectionIconOn: {
+      backgroundColor: colors.green100,
+    },
+    connectionIconOff: {
+      backgroundColor: colors.gray200,
+    },
+    connectionText: {
+      flex: 1,
+    },
+    connectionTitle: {
+      fontWeight: '800',
+      fontSize: 16,
+      color: colors.gray900,
+    },
+    connectionSubtitle: {
+      fontSize: 12,
+      color: colors.gray500,
+      marginTop: 2,
+    },
+    connectionButton: {
+      width: '100%',
     },
   });
