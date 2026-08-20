@@ -33,6 +33,23 @@ Scan the QR code with the Expo Go app on your phone (or press `a` for an Android
 
 > **Note:** Expo Go on the Play Store currently supports **SDK 54**. If the project reports a version mismatch, make sure you have the latest Expo Go build.
 
+### Web
+
+The app also runs in the browser:
+
+```bash
+npm run web        # start the Expo web dev server
+npm run build:web  # export a production web bundle to dist/
+```
+
+Serve the production bundle from `dist/` with any static file server, e.g. `npx serve dist`.
+
+### Deploying to Vercel
+
+The repo includes a `vercel.json` configured for the Expo web export: Vercel runs `npm run build:web` and serves `dist/`. Import the repo in Vercel (Framework Preset: **Other**) or run `npx vercel` from the repo root. No framework detection is needed — `vercel.json` handles it.
+
+> **Note:** The app connects to the ESP32 over WebSocket. Browsers block `ws://` connections from `https://` pages (mixed content), so a production web deployment must either be served over `http://` or use a device/firmware that supports `wss://`. Vercel serves HTTPS by default, so the hosted app can only reach the device if the firmware supports WebSocket over TLS (`wss://`); otherwise use the web app from `http://localhost` (dev server).
+
 ## Project Structure
 
 ```

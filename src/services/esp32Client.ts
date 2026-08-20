@@ -58,7 +58,9 @@ class Esp32Client {
   connect(ip: string, port: number): Promise<void> {
     this.closeSocket();
     return new Promise<void>((resolve, reject) => {
-      const url = `ws://${ip}:${port}`;
+      const scheme =
+        typeof window !== 'undefined' && window.location?.protocol === 'https:' ? 'wss' : 'ws';
+      const url = `${scheme}://${ip}:${port}`;
       let ws: WebSocket;
       try {
         ws = new WebSocket(url);

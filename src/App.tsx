@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ScrollView, Alert, Platform } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { LayoutDashboard, Activity, Zap, Settings as SettingsIcon, Wifi, WifiOff } from 'lucide-react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -108,6 +108,12 @@ const MonitoringScreen = ({ onOpenDiscovery }: { onOpenDiscovery?: () => void })
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const confirmDisconnect = () => {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Disconnect Device\n\nThis will stop live telemetry. You can reconnect anytime.')) {
+        disconnect();
+      }
+      return;
+    }
     Alert.alert('Disconnect Device', 'This will stop live telemetry. You can reconnect anytime.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Disconnect', style: 'destructive', onPress: disconnect },
@@ -193,31 +199,33 @@ function AppContent() {
     <View style={[styles.app, { paddingTop: insets.top }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
 
-      {currentScreen === 'discovery' && (
-        <FadeSlide>
-          <DiscoveryScreen onConnect={handleConnect} onBack={() => setCurrentScreen('main')} />
-        </FadeSlide>
-      )}
+      <View style={[styles.shell, Platform.OS === 'web' && styles.shellWeb]}>
+        {currentScreen === 'discovery' && (
+          <FadeSlide>
+            <DiscoveryScreen onConnect={handleConnect} onBack={() => setCurrentScreen('main')} />
+          </FadeSlide>
+        )}
 
-      {currentScreen === 'main' && (
-        <FadeSlide>
-          <View style={styles.main}>
-            <View style={styles.mainContent}>
-              {activeTab === 'dashboard' && <DashboardScreen />}
-              {activeTab === 'monitoring' && <MonitoringScreen onOpenDiscovery={() => setCurrentScreen('discovery')} />}
-              {activeTab === 'control' && <ControlScreen />}
-              {activeTab === 'settings' && <SettingsScreen />}
-            </View>
+        {currentScreen === 'main' && (
+          <FadeSlide>
+            <View style={styles.main}>
+              <View style={styles.mainContent}>
+                {activeTab === 'dashboard' && <DashboardScreen />}
+                {activeTab === 'monitoring' && <MonitoringScreen onOpenDiscovery={() => setCurrentScreen('discovery')} />}
+                {activeTab === 'control' && <ControlScreen />}
+                {activeTab === 'settings' && <SettingsScreen />}
+              </View>
 
-            <View style={[styles.nav, { paddingBottom: insets.bottom + 12 }]}>
-              <BottomTab icon={LayoutDashboard} label="Home" active={activeTab === 'dashboard'} onPress={() => setActiveTab('dashboard')} />
-              <BottomTab icon={Activity} label="Connect" active={activeTab === 'monitoring'} onPress={() => setActiveTab('monitoring')} />
-              <BottomTab icon={Zap} label="Control" active={activeTab === 'control'} onPress={() => setActiveTab('control')} />
-              <BottomTab icon={SettingsIcon} label="Settings" active={activeTab === 'settings'} onPress={() => setActiveTab('settings')} />
+              <View style={[styles.nav, { paddingBottom: insets.bottom + 12 }]}>
+                <BottomTab icon={LayoutDashboard} label="Home" active={activeTab === 'dashboard'} onPress={() => setActiveTab('dashboard')} />
+                <BottomTab icon={Activity} label="Connect" active={activeTab === 'monitoring'} onPress={() => setActiveTab('monitoring')} />
+                <BottomTab icon={Zap} label="Control" active={activeTab === 'control'} onPress={() => setActiveTab('control')} />
+                <BottomTab icon={SettingsIcon} label="Settings" active={activeTab === 'settings'} onPress={() => setActiveTab('settings')} />
+              </View>
             </View>
-          </View>
-        </FadeSlide>
-      )}
+          </FadeSlide>
+        )}
+      </View>
     </View>
   );
 }
@@ -235,6 +243,15 @@ const createStyles = (colors: ThemeColors) =>
     app: {
       flex: 1,
       backgroundColor: colors.background,
+    },
+    shell: {
+      flex: 1,
+    },
+    shellWeb: {
+      width: '100%',
+      maxWidth: 480,
+      alignSelf: 'center',
+      boxShadow: '0 0 0 1px rgba(0,0,0,0.05)',
     },
     main: {
       flex: 1,
